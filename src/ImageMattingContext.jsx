@@ -1,45 +1,45 @@
-import removeBackground from '@imgly/background-removal';
+import imglyRemoveBackground from "@imgly/background-removal";
 import {
   createContext,
   useCallback,
   useContext,
   useMemo,
-  useState
-} from 'react';
+  useState,
+} from "react";
 
 const ImageMattingContext = createContext({
-  status: 'idle',
-  processMessage: '',
+  status: "idle",
+  processMessage: "",
   hasProcessedImage: false,
   processImage: (path) => {},
-  imageUrl: '',
-  originalImageUrl: '',
+  imageUrl: "",
+  originalImageUrl: "",
   resetState: () => {},
-  inferenceTime: 0
+  inferenceTime: 0,
 });
 
 const STATUS_MESSAGES = {
-  idle: '',
-  init: 'Initializing...',
-  fetching: 'Downloading: Assets',
-  processing: 'Processing: Removing image background',
-  done: '',
-  error: 'Error: Removing image background'
+  idle: "",
+  init: "Initializing...",
+  fetching: "Downloading: Assets",
+  processing: "Processing: Removing image background",
+  done: "",
+  error: "Error: Removing image background",
 };
-const PROCESSING_STATUS = ['init', 'fetching', 'processing'];
+const PROCESSING_STATUS = ["init", "fetching", "processing"];
 
 const ImageMattingContextProvider = ({ children }) => {
-  const [status, setStatus] = useState('idle');
+  const [status, setStatus] = useState("idle");
   const processMessage = useMemo(() => STATUS_MESSAGES[status], [status]);
   const [hasProcessedImage, setHasProcessedImage] = useState(false);
-  const [imageUrl, setImageUrl] = useState('');
+  const [imageUrl, setImageUrl] = useState("");
   const [originalImageUrl, setOriginalImageUrl] = useState();
   const [inferenceTime, setInferenceTime] = useState(0);
 
   function resetState() {
-    setStatus('idle');
+    setStatus("idle");
     setHasProcessedImage(false);
-    setImageUrl('');
+    setImageUrl("");
   }
 
   const processImage = useCallback(async (path) => {
@@ -49,33 +49,17 @@ const ImageMattingContextProvider = ({ children }) => {
     const blob = await response.blob();
     const startTime = Date.now();
 
-    console.log("[processImage]");
-
-    setStatus('init');
-    let imageBlob;
-    try {
-      imageBlob = await removeBackground(blob, {
-        publicPath:
-          process.env.REACT_APP_BACKGROUND_REMOVAL_ASSET_HOST +
-          '${PACKAGE_NAME}/${PACKAGE_VERSION}/dist/',
-        progress: (key, current, total) => {
-          if (key.startsWith('fetch:')) {
-            setStatus('fetching');
-          } else if (key.startsWith('compute:inference')) {
-            setStatus('processing');
-          }
-        }
-      });
-    } catch (error) {
-      setStatus('error');
-      console.error(error);
-      return;
-    }
-    const timeDiffInSeconds = (Date.now() - startTime) / 1000;
-    setInferenceTime(timeDiffInSeconds);
-    setHasProcessedImage(true);
-    setImageUrl(URL.createObjectURL(imageBlob));
-    setStatus('idle');
+    setStatus("init");
+    imglyRemoveBackground(blob).then((blob) => {
+      // The result is a blob encoded as PNG. It can be converted to an URL to be used as HTMLImage.src
+      const url = URL.createObjectURL(blob);
+      const timeDiffInSeconds = (Date.now() - startTime) / 1000;
+      setInferenceTime(timeDiffInSeconds);
+      setHasProcessedImage(true);
+      // setImageUrl(URL.createObjectURL(url));
+      setImageUrl(url);
+      setStatus("idle");
+    });
   }, []);
 
   return (
@@ -89,7 +73,7 @@ const ImageMattingContextProvider = ({ children }) => {
         originalImageUrl,
         processImage,
         resetState,
-        inferenceTime
+        inferenceTime,
       }}
     >
       {children}
@@ -101,7 +85,7 @@ export const useImageMatting = () => {
   const context = useContext(ImageMattingContext);
   if (context === undefined) {
     throw new Error(
-      'useImageMatting must be used within a ImageMattingProvider'
+      "useImageMatting must be used within a ImageMattingProvider"
     );
   }
   return context;
